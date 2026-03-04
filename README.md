@@ -13,6 +13,15 @@ A simple, fast API to identify Philippine mobile networks (Globe, Smart, DITO) f
 
 ## Quick Start
 
+### Live Demo (Hosted)
+
+The API is live on Railway:
+
+- **Base URL:** `https://ph-prefix-api.up.railway.app`
+- **Health:** `https://ph-prefix-api.up.railway.app/health`
+- **Lookup:** `https://ph-prefix-api.up.railway.app/api/v1/lookup?number=09171234567`
+- **Docs:** `https://ph-prefix-api.up.railway.app/docs` (Swagger UI)
+
 ### Local Development
 
 ```bash
@@ -50,7 +59,7 @@ Health check.
 Lookup network by full mobile number.
 
 **Parameters:**
-- `number` (query, required): 11-digit number starting with 09
+- `number` (query, required): 11-digit number starting with **09** (Globe/Smart) or **08** (DITO)
 
 **Success Response (200):**
 ```json
@@ -64,7 +73,7 @@ Lookup network by full mobile number.
 ```
 
 **Error Responses:**
-- 400: Invalid input (not 11 digits, not starting with 09)
+- 400: Invalid input (not 11 digits, not starting with 09 or 08)
 - 404: Prefix not in database
 - 429: Rate limit exceeded
 
@@ -73,9 +82,9 @@ Lookup network by full mobile number.
 Lookup network by 4-digit prefix only.
 
 **Parameters:**
-- `prefix` (path, required): 4-digit prefix starting with 09
+- `prefix` (path, required): 4-digit prefix starting with **09** (Globe/Smart) or **08** (DITO)
 
-Example: `/api/v1/prefix/0917`
+Example: `/api/v1/prefix/0917` or `/api/v1/prefix/0895`
 
 **Response (200):**
 ```json
