@@ -6,13 +6,32 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 from typing import Dict
 import time
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 app = FastAPI(
     title="PH Mobile Prefix API",
     description="Lookup Globe/Smart/DITO network from Philippine mobile number prefixes",
     version="1.0.0"
 )
+
+# ============== Statistics Tracking ==============
+stats = {
+    "total_requests": 0,
+    "requests_by_endpoint": defaultdict(int),
+    "top_prefixes": Counter(),
+    "unique_ips": set(),
+    "status_codes": defaultdict(int),
+    "start_time": datetime.utcnow()
+}
+
+def track_request(endpoint: str, prefix: str = None, status: int = 200, client_ip: str = None):
+    stats["total_requests"] += 1
+    stats["requests_by_endpoint"][endpoint] += 1
+    stats["status_codes"][status] += 1
+    if client_ip:
+        stats["unique_ips"].add(client_ip)
+    if prefix:
+        stats["top_prefixes"][prefix] += 1
 
 # CORS - allow all origins for public API
 app.add_middleware(
@@ -63,6 +82,19 @@ async def health():
     """Health check endpoint."""
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
+@app.get("/stats")
+async def stats_endpoint():
+    """Usage statistics (in-memory, resets on restart)."""
+    uptime = datetime.utcnow() - stats["start_time"]
+    return {
+        "total_requests": stats["total_requests"],
+        "uptime_seconds": int(uptime.total_seconds()),
+        "requests_by_endpoint": dict(stats["requests_by_endpoint"]),
+        "top_prefixes": stats["top_prefixes"].most_common(10),
+        "unique_ips_estimate": len(stats["unique_ips"]),
+        "status_codes": dict(stats["status_codes"])
+    }
+
 @app.get("/api/v1/lookup")
 async def lookup(request: Request, number: str = Query(..., description="11-digit mobile number starting with 09")):
     """
@@ -75,6 +107,7 @@ async def lookup(request: Request, number: str = Query(..., description="11-digi
     # Get client IP (trust X-Forwarded-For if behind proxy like Railway)
     client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
     if is_rate_limited(client_ip):
+        track_request(request.url.path, None, 429, client_ip)
         return JSONResponse(
             status_code=429,
             content={"error": "Rate limit exceeded", "retry_after": 60}
@@ -92,6 +125,8 @@ async def lookup(request: Request, number: str = Query(..., description="11-digi
     network = PREFIX_DATA.get(prefix)
 
     if not network:
+        # Track 404
+        track_request("/api/v1/lookup", prefix, 404, client_ip)
         return JSONResponse(
             status_code=404,
             content={
@@ -101,6 +136,8 @@ async def lookup(request: Request, number: str = Query(..., description="11-digi
             }
         )
 
+    # Track success
+    track_request("/api/v1/lookup", prefix, 200, client_ip)
     return {
         "number": number,
         "prefix": prefix,
@@ -115,6 +152,7 @@ async def lookup_prefix(request: Request, prefix: str):
     # Rate limiting
     client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
     if is_rate_limited(client_ip):
+        track_request(request.url.path, None, 429, client_ip)
         return JSONResponse(
             status_code=429,
             content={"error": "Rate limit exceeded", "retry_after": 60}
@@ -127,10 +165,12 @@ async def lookup_prefix(request: Request, prefix: str):
 
     network = PREFIX_DATA.get(prefix)
     if not network:
+        track_request("/api/v1/prefix/{prefix}", prefix, 404, client_ip)
         return JSONResponse(
             status_code=404,
             content={"error": "Prefix not found"}
         )
+    track_request("/api/v1/prefix/{prefix}", prefix, 200, client_ip)
     return {"prefix": prefix, "network": network}
 
 if __name__ == "__main__":
