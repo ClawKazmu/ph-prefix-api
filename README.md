@@ -94,6 +94,29 @@ Example: `/api/v1/prefix/0917` or `/api/v1/prefix/0895`
 }
 ```
 
+### GET /stats
+
+Internal usage statistics (in-memory, resets on restart). Returns:
+
+- `total_requests`: total count
+- `uptime_seconds`: how long the server has been running
+- `requests_by_endpoint`: dict of endpoint → count
+- `top_prefixes`: list of `[prefix, count]` most queried prefixes
+- `unique_ips_estimate`: approximate unique IPs seen
+- `status_codes`: dict of HTTP status → count
+
+**Example:**
+```json
+{
+  "total_requests": 1234,
+  "uptime_seconds": 3600,
+  "requests_by_endpoint": {"/api/v1/lookup": 1000, "/api/v1/prefix/0917": 200, ...},
+  "top_prefixes": [["0917", 500], ["0991", 300], ...],
+  "unique_ips_estimate": 45,
+  "status_codes": {200: 1200, 404: 30, 429: 4}
+}
+```
+
 ## Pricing Tiers
 
 | Tier | Requests/month | Price | Features |
