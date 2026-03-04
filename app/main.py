@@ -1,6 +1,6 @@
 """PH Mobile Prefix API - Lookup Philippine mobile number networks."""
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from datetime import datetime
@@ -21,6 +21,18 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"],
 )
+
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = datetime.utcnow()
+    response = await call_next(request)
+    duration = (datetime.utcnow() - start_time).total_seconds()
+    # Get client IP (may be behind proxy)
+    client_ip = request.client.host if request.client else "unknown"
+    log_line = f"{start_time.isoformat()} - {client_ip} - {request.method} {request.url.path} - {response.status_code} - {duration:.3f}s"
+    print(log_line)
+    return response
 
 # Load prefix data
 def load_prefixes() -> Dict[str, str]:
@@ -52,7 +64,7 @@ async def health():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 @app.get("/api/v1/lookup")
-async def lookup(number: str = Query(..., description="11-digit mobile number starting with 09")):
+async def lookup(request: Request, number: str = Query(..., description="11-digit mobile number starting with 09")):
     """
     Lookup mobile network by prefix.
 
@@ -60,8 +72,8 @@ async def lookup(number: str = Query(..., description="11-digit mobile number st
 
     Returns network, note about MNP, and last updated date.
     """
-    # Rate limit by client IP (basic)
-    client_ip = "127.0.0.1"  # FastAPI doesn't provide real IP without proxy; adjust if behind load balancer
+    # Get client IP (trust X-Forwarded-For if behind proxy like Railway)
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
     if is_rate_limited(client_ip):
         return JSONResponse(
             status_code=429,
@@ -98,8 +110,16 @@ async def lookup(number: str = Query(..., description="11-digit mobile number st
     }
 
 @app.get("/api/v1/prefix/{prefix}")
-async def lookup_prefix(prefix: str):
+async def lookup_prefix(request: Request, prefix: str):
     """Lookup network by 4-digit prefix only (e.g., 0917)."""
+    # Rate limiting
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+    if is_rate_limited(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "Rate limit exceeded", "retry_after": 60}
+        )
+
     if not prefix.isdigit() or len(prefix) != 4:
         raise HTTPException(status_code=400, detail="Prefix must be 4 digits")
     if not (prefix.startswith("09") or prefix.startswith("08")):
