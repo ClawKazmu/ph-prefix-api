@@ -73,8 +73,8 @@ async def lookup(number: str = Query(..., description="11-digit mobile number st
         raise HTTPException(status_code=400, detail="Number must be digits only")
     if len(number) != 11:
         raise HTTPException(status_code=400, detail="Number must be exactly 11 digits")
-    if not number.startswith("09"):
-        raise HTTPException(status_code=400, detail="Number must start with 09")
+    if not (number.startswith("09") or number.startswith("08")):
+        raise HTTPException(status_code=400, detail="Number must start with 09 (Globe/Smart) or 08 (DITO)")
 
     prefix = number[:4]
     network = PREFIX_DATA.get(prefix)
@@ -102,8 +102,8 @@ async def lookup_prefix(prefix: str):
     """Lookup network by 4-digit prefix only (e.g., 0917)."""
     if not prefix.isdigit() or len(prefix) != 4:
         raise HTTPException(status_code=400, detail="Prefix must be 4 digits")
-    if not prefix.startswith("09"):
-        raise HTTPException(status_code=400, detail="Prefix must start with 09")
+    if not (prefix.startswith("09") or prefix.startswith("08")):
+        raise HTTPException(status_code=400, detail="Prefix must start with 09 (Globe/Smart) or 08 (DITO)")
 
     network = PREFIX_DATA.get(prefix)
     if not network:
