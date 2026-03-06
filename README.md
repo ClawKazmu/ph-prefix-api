@@ -11,9 +11,7 @@ A simple, fast API to identify Philippine mobile networks (Globe, Smart, DITO) f
 - Health check endpoint
 - Deploy-ready (Railway, Render)
 
-## Quick Start
-
-### Live Demo (Hosted)
+## Live Demo (Hosted)
 
 The API is live on Railway:
 
@@ -22,7 +20,7 @@ The API is live on Railway:
 - **Lookup:** `https://ph-prefix-api.up.railway.app/api/v1/lookup?number=09171234567`
 - **Docs:** `https://ph-prefix-api.up.railway.app/docs` (Swagger UI)
 
-### Local Development
+## Local Development
 
 ```bash
 # Install dependencies
@@ -35,10 +33,6 @@ uvicorn app.main:app --reload
 ```
 
 Server starts at `http://localhost:8000`
-
-### API Docs
-
-Interactive docs: `http://localhost:8000/docs` (Swagger UI)
 
 ## API Endpoints
 
@@ -132,10 +126,50 @@ Prefix data compiled from official NTC releases, telco announcements, and reputa
 
 **Last Updated:** 2025-03-05
 
-## Limitations
+## Important Notes
+
+### Mobile Number Portability (MNP)
+
+**What is MNP?**  
+Philippine mobile number portability allows subscribers to keep their phone number when switching between telecom providers (Globe, Smart, DITO). This means a number starting with a Globe prefix might now be on Smart or DITO.
+
+**Why prefix lookup isn't 100% accurate:**
+- MNP has been active since 2021, and many users have ported their numbers.
+- **Neither the telcos nor the NTC provide an official lookup API** to verify the current network of a ported number.
+- Our API uses prefix-based lookup (the only free method available), which reflects the **original network assignment**, not the current one post-porting.
+
+**For MNP-verified accuracy:**
+If you need to know the *actual* current network for routing SMS/calls with high accuracy, consider:
+- **CheckMobi**: MNP-verified lookup service (~$0.002 per request)
+- **Twilio Lookup**: Global number intelligence (including MNP for PH)
+- **Direct telco agreements**: Enterprise-grade verification via telco APIs (costly, requires contracts)
+
+### SMS Costs (for aggregators like Semaphore)
+
+If you're using an SMS aggregator that connects directly to all Philippine telcos (e.g., Semaphore, Twilio, etc.):
+- **Cost differences between networks are negligible** – aggregators pay similar wholesale rates across Globe, Smart, and DITO.
+- You don't need to optimize routing by network for cost savings; use any available route.
+
+### Use Cases & Limitations
+
+**Suitable for:**
+- General analytics and segmentation (rough estimates)
+- Pre-filling UI forms (e.g., "Is this a Globe number?");
+- Educational/research purposes
+- Non-critical routing where MNP errors are acceptable
+
+**Not suitable for:**
+- Regulatory compliance requiring accurate network identification
+- High-value transaction notifications where delivery guarantees matter
+- Bypassing telco-specific pricing tiers (cost differences are minimal anyway)
+
+### Limitations
 
 - This API uses **prefix-based lookup only**. It does **not** verify actual network via Mobile Number Portability (MNP).
-- For MNP-verified lookup, use CheckMobi's service ($0.002/req).
+- The data does not account for numbers that have been ported to a different network.
+- For MNP-verified lookup, we recommend CheckMobi's service ($0.002/req) or similar providers.
+- Rate limits are enforced to prevent abuse.
+- Statistics are in-memory and reset on server restart.
 
 ## Deployment
 
